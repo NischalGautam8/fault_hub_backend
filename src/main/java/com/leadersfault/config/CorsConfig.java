@@ -21,10 +21,10 @@ public class CorsConfig implements WebMvcConfigurer {
         "https://www.nischal.tech",
         "https://wwww.faulthub.nischal.tech",
         "http://www.nischal.tech",
-        "http:www.faulthub.nischal.tech",
         "https://fault-hub-frontend-1swf-74s1ajj7h-headshighs-projects.vercel.app",
-        "www.faulthub.nischal.tech",
-        "www.nischal.tech"
+        "www.nischal.tech",
+        "https://www.faulthub.nischal.tech",
+        
 
       )
       .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
