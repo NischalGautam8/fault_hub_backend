@@ -56,40 +56,72 @@ public class AuthController {
   public ResponseEntity<?> createAuthenticationToken(
     @RequestBody AuthRequest authRequest
   ) {
+    if (
+      authRequest == null ||
+      authRequest.getUsername() == null ||
+      authRequest.getPassword() == null
+    ) {
+      telemetryLogger.trackEvent(
+        "Login attempt - Invalid Request",
+        Map.of("reason", "null authRequest or fields")
+      );
+      return ResponseEntity
+        .badRequest()
+        .body("Username and password must be provided.");
+    }
+
     // Track login attempt
     telemetryLogger.trackEvent(
       "Login attempt",
       Map.of("username", authRequest.getUsername())
     );
 
-    // Find user by username
-    var userOptional = userRepository.findByUsername(authRequest.getUsername());
+    try {
+      // Find user by username
+      var userOptional = userRepository.findByUsername(
+        authRequest.getUsername()
+      );
 
-    // Check if user exists and password matches
-    if (userOptional.isPresent()) {
-      User user = userOptional.get();
-      if (
-        passwordEncoder.matches(authRequest.getPassword(), user.getPassword())
-      ) {
-        // Track successful login
-        telemetryLogger.trackEvent(
-          "Successful login",
-          Map.of("username", authRequest.getUsername())
-        );
+      // Check if user exists and password matches
+      if (userOptional.isPresent()) {
+        User user = userOptional.get();
+        if (user.getPassword() == null) {
+          telemetryLogger.trackEvent(
+            "Failed login - User password null",
+            Map.of("username", authRequest.getUsername())
+          );
+          return ResponseEntity
+            .status(500)
+            .body("User data corrupted: password not set.");
+        }
+        if (
+          passwordEncoder.matches(authRequest.getPassword(), user.getPassword())
+        ) {
+          // Track successful login
+          telemetryLogger.trackEvent(
+            "Successful login",
+            Map.of("username", authRequest.getUsername())
+          );
 
-        // Generate JWT token
-        String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token));
+          // Generate JWT token
+          String token = jwtUtil.generateToken(user.getUsername());
+          return ResponseEntity.ok(new AuthResponse(token));
+        }
       }
+
+      // Track failed login
+      telemetryLogger.trackEvent(
+        "Failed login",
+        Map.of("username", authRequest.getUsername())
+      );
+
+      return ResponseEntity.status(401).body("Incorrect username or password");
+    } catch (Exception e) {
+      telemetryLogger.trackException(e);
+      return ResponseEntity
+        .status(500)
+        .body("An unexpected error occurred during login: " + e.getMessage());
     }
-
-    // Track failed login
-    telemetryLogger.trackEvent(
-      "Failed login",
-      Map.of("username", authRequest.getUsername())
-    );
-
-    return ResponseEntity.status(401).body("Incorrect username or password");
   }
 
   @PostMapping("/validate")
