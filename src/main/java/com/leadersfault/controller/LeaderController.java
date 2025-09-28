@@ -82,6 +82,10 @@ public class LeaderController {
   ) {
     try {
       String token = request.getHeader("Authorization");
+      if (token == null || !token.startsWith("Bearer ")) {
+        return ResponseEntity.status(401).body("Unauthorized");
+      }
+      token = token.substring(7);
       jwtUtil.validateJwt(token);
       // Upload image to Cloudinary
       String imageUrl = cloudinaryService.uploadFile(imageFile);
@@ -156,6 +160,10 @@ public class LeaderController {
     @PathVariable Long id
   ) {
     String token = request.getHeader("Authorization");
+    if (token == null || !token.startsWith("Bearer ")) {
+      return ResponseEntity.status(401).build();
+    }
+    token = token.substring(7);
     jwtUtil.validateJwt(token);
     Long userId = getUserIdFromToken(request);
     if (userId == null) {
@@ -195,6 +203,10 @@ public class LeaderController {
     @PathVariable Long id
   ) {
     String token = request.getHeader("Authorization");
+    if (token == null || !token.startsWith("Bearer ")) {
+      return ResponseEntity.status(401).build();
+    }
+    token = token.substring(7);
     jwtUtil.validateJwt(token);
     Long userId = getUserIdFromToken(request);
     if (userId == null) {

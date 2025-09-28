@@ -87,7 +87,7 @@ public class JwtUtil {
     try {
       validateAndParse(token);
     } catch (JwtException e) {
-      throw new JwtException("Invalid JWT token");
+      throw new JwtException("Invalid JWT token: " + e.getMessage(), e);
     }
   }
 
