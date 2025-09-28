@@ -54,6 +54,7 @@ public class JwtUtil {
       .builder()
       .setClaims(claims)
       .setSubject(subject)
+      .setIssuer("leaders-fault-backend") // Added issuer claim
       .setIssuedAt(new Date(System.currentTimeMillis()))
       .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
       .signWith(
