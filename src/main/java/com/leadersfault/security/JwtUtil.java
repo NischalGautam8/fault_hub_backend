@@ -4,10 +4,13 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -15,8 +18,58 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtUtil {
 
-  @Value("${JWT_SECRET}")
-  private String SECRET_KEY;
+  private static final String AUDIENCE = "custom-jwt";
+  private static final long EXPIRATION_MS = 1000 * 60 * 60 * 24 * 5; // 5 days
+
+  private final PrivateKey privateKey;
+  private final PublicKey publicKey;
+  private final String issuer;
+
+  public JwtUtil(
+    @Value("${JWT_PRIVATE_KEY_BASE64}") String privateKeyBase64,
+    @Value("${JWT_PUBLIC_KEY_BASE64}") String publicKeyBase64,
+    @Value("${SERVER_URL}") String serverUrl
+  ) throws Exception {
+    this.issuer = serverUrl;
+    // Load private key from base64 encoded environment variable
+    byte[] pkcs8 = Base64.getDecoder().decode(privateKeyBase64);
+    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(pkcs8);
+    this.privateKey = KeyFactory.getInstance("RSA").generatePrivate(keySpec);
+
+    // Load public key from base64 encoded environment variable
+    byte[] x509 = Base64.getDecoder().decode(publicKeyBase64);
+    X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(x509);
+    this.publicKey = KeyFactory.getInstance("RSA").generatePublic(pubSpec);
+  }
+
+  public String generateToken(String username) {
+    return Jwts
+      .builder()
+      .setSubject(username)
+      .setIssuer(issuer)
+      .setAudience(AUDIENCE)
+      .setIssuedAt(new Date())
+      .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
+      .signWith(privateKey, SignatureAlgorithm.RS256)
+      .compact();
+  }
+
+  public Claims validateAndParse(String token) {
+    try {
+      return Jwts
+        .parserBuilder()
+        .setSigningKey(publicKey)
+        .build()
+        .parseClaimsJws(token)
+        .getBody();
+    } catch (JwtException e) {
+      throw new JwtException("Invalid JWT: " + e.getMessage());
+    }
+  }
+
+  public <T> T extractClaim(String token, Function<Claims, T> resolver) {
+    return resolver.apply(validateAndParse(token));
+  }
 
   public String extractUsername(String token) {
     return extractClaim(token, Claims::getSubject);
@@ -26,51 +79,13 @@ public class JwtUtil {
     return extractClaim(token, Claims::getExpiration);
   }
 
-  public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-    final Claims claims = extractAllClaims(token);
-    return claimsResolver.apply(claims);
-  }
-
-  private Claims extractAllClaims(String token) {
-    return Jwts
-      .parserBuilder()
-      .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
-      .build()
-      .parseClaimsJws(token)
-      .getBody();
-  }
-
   private Boolean isTokenExpired(String token) {
     return extractExpiration(token).before(new Date());
   }
 
-  public String generateToken(String username) {
-    Map<String, Object> claims = new HashMap<>();
-    return createToken(claims, username);
-  }
-
-  private String createToken(Map<String, Object> claims, String subject) {
-    return Jwts
-      .builder()
-      .setClaims(claims)
-      .setSubject(subject)
-      .setIssuer("https://leaders-fault-backend") // Added issuer claim
-      .setIssuedAt(new Date(System.currentTimeMillis()))
-      .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
-      .signWith(
-        Keys.hmacShaKeyFor(SECRET_KEY.getBytes()),
-        SignatureAlgorithm.HS256
-      )
-      .compact();
-  }
-
   public void validateJwt(String token) {
     try {
-      Jwts
-        .parserBuilder()
-        .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
-        .build()
-        .parseClaimsJws(token);
+      validateAndParse(token);
     } catch (JwtException e) {
       throw new JwtException("Invalid JWT token");
     }
@@ -79,5 +94,9 @@ public class JwtUtil {
   public Boolean validateToken(String token, String username) {
     final String extractedUsername = extractUsername(token);
     return (extractedUsername.equals(username) && !isTokenExpired(token));
+  }
+
+  public PublicKey getPublicKey() {
+    return publicKey;
   }
 }
