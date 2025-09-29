@@ -131,9 +131,13 @@ public class AuthController {
 
   @PostMapping("/validate")
   public ResponseEntity<?> validateToken(
-    @RequestHeader("Authorization") String token
+    @RequestHeader("Authorization") String authHeader
   ) {
     try {
+      if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        return ResponseEntity.status(401).body("Invalid Authorization header format");
+      }
+      String token = authHeader.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       jwtUtil.validateJwt(token);
       return ResponseEntity.ok("Token is valid");
     } catch (Exception e) {
@@ -148,7 +152,7 @@ public class AuthController {
   ) {
     try {
       // Extract token from Authorization header
-      String token = authHeader.replace("Bearer ", "");
+      String token = authHeader.replace("Bearer ", "").trim(); // Also trim whitespace
       jwtUtil.validateJwt(token);
 
       // Validate query parameter

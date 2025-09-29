@@ -56,6 +56,8 @@ public class JwtUtil {
 
   public Claims validateAndParse(String token) {
     try {
+      // Trim any leading/trailing whitespace from token
+      token = token.trim();
       return Jwts
         .parserBuilder()
         .setSigningKey(publicKey)
@@ -85,6 +87,8 @@ public class JwtUtil {
 
   public void validateJwt(String token) {
     try {
+      // Trim any leading/trailing whitespace from token
+      token = token.trim();
       validateAndParse(token);
     } catch (JwtException e) {
       throw new JwtException("Invalid JWT token: " + e.getMessage(), e);

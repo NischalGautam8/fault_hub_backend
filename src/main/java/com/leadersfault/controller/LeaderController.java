@@ -85,7 +85,7 @@ public class LeaderController {
       if (token == null || !token.startsWith("Bearer ")) {
         return ResponseEntity.status(401).body("Unauthorized");
       }
-      token = token.substring(7);
+      token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       jwtUtil.validateJwt(token);
       // Upload image to Cloudinary
       String imageUrl = cloudinaryService.uploadFile(imageFile);
@@ -163,7 +163,7 @@ public class LeaderController {
     if (token == null || !token.startsWith("Bearer ")) {
       return ResponseEntity.status(401).build();
     }
-    token = token.substring(7);
+    token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
     jwtUtil.validateJwt(token);
     Long userId = getUserIdFromToken(request);
     if (userId == null) {
@@ -206,7 +206,7 @@ public class LeaderController {
     if (token == null || !token.startsWith("Bearer ")) {
       return ResponseEntity.status(401).build();
     }
-    token = token.substring(7);
+    token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
     jwtUtil.validateJwt(token);
     Long userId = getUserIdFromToken(request);
     if (userId == null) {
@@ -324,7 +324,7 @@ public class LeaderController {
   private Long getUserIdFromToken(HttpServletRequest request) {
     String token = request.getHeader("Authorization");
     if (token != null && token.startsWith("Bearer ")) {
-      token = token.substring(7);
+      token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       String username = userValidationService.getUsernameFromToken(token);
       if (username != null) {
         Optional<User> userOptional = userRepository.findByUsername(username);
@@ -339,7 +339,7 @@ public class LeaderController {
   private boolean isValidToken(HttpServletRequest request) {
     String token = request.getHeader("Authorization");
     if (token != null && token.startsWith("Bearer ")) {
-      token = token.substring(7);
+      token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       return userValidationService.isValidToken(token);
     }
     return false;
@@ -348,7 +348,7 @@ public class LeaderController {
   private User getUserFromRequest(HttpServletRequest request) {
     String token = request.getHeader("Authorization");
     if (token != null && token.startsWith("Bearer ")) {
-      token = token.substring(7);
+      token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       if (userValidationService.isValidToken(token)) {
         String username = userValidationService.getUsernameFromToken(token);
         return userRepository.findByUsername(username).orElse(null);

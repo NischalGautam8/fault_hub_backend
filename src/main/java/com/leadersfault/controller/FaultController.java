@@ -59,6 +59,10 @@ public class FaultController {
   ) {
     try {
       String token = request.getHeader("Authorization");
+      if (token == null || !token.startsWith("Bearer ")) {
+        return ResponseEntity.status(401).body("Unauthorized: Missing or invalid token");
+      }
+      token = token.substring(7).trim(); // Remove "Bearer " prefix and trim any whitespace
       jwtUtil.validateJwt(token);
       // Upload image to Cloudinary
       String imageUrl = cloudinaryService.uploadFile(imageFile);
@@ -68,9 +72,7 @@ public class FaultController {
       fault.setDescription(description);
       fault.setImageUrl(imageUrl);
 
-      String username = userValidationService.getUsernameFromToken(
-        token.substring(7)
-      );
+      String username = userValidationService.getUsernameFromToken(token);
       fault.setUploadedBy(username);
 
       // Deserialize leaderIds from JSON string
@@ -218,7 +220,7 @@ public class FaultController {
         .status(401)
         .body("Unauthorized: Missing or invalid token");
     }
-    token = token.substring(7);
+    token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
     jwtUtil.validateJwt(token);
 
     String username = userValidationService.getUsernameFromToken(token);
@@ -273,7 +275,7 @@ public class FaultController {
     if (token == null || !token.startsWith("Bearer ")) {
       return ResponseEntity.status(401).body("Unauthorized");
     }
-    token = token.substring(7);
+    token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
     jwtUtil.validateJwt(token);
 
     String username = userValidationService.getUsernameFromToken(token);
@@ -328,7 +330,7 @@ public class FaultController {
   private User getUserFromRequest(HttpServletRequest request) {
     String token = request.getHeader("Authorization");
     if (token != null && token.startsWith("Bearer ")) {
-      token = token.substring(7);
+      token = token.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       if (userValidationService.isValidToken(token)) {
         String username = userValidationService.getUsernameFromToken(token);
         return userRepository.findByUsername(username).orElse(null);
