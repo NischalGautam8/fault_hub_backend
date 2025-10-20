@@ -26,13 +26,19 @@ public class LeaderResponse {
     response.setLikes(leader.getLikes());
     response.setDislikes(leader.getDislikes());
     response.setNumberOfFaults(leader.getNumberOfFaults());
-    response.setFaultCount(leader.getFaults().size()); // Populate faultCount
+    response.setFaultCount(leader.getNumberOfFaults()); // Populate faultCount
 
     // Set vote status based on user's previous actions
     if (userId != null) {
-      if (leader.getLikedByUsers().contains(userId)) {
+      if (
+        leader.getLikedByUsers() != null &&
+        leader.getLikedByUsers().contains(userId)
+      ) {
         response.setVoteStatus("LIKED");
-      } else if (leader.getDislikedByUsers().contains(userId)) {
+      } else if (
+        leader.getDislikedByUsers() != null &&
+        leader.getDislikedByUsers().contains(userId)
+      ) {
         response.setVoteStatus("DISLIKED");
       } else {
         response.setVoteStatus(null);

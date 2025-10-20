@@ -11,19 +11,43 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    # Using local Kafka for development — Event Hubs configuration is commented out below.
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-consumer-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      retries: 3
+    # Azure Event Hubs configuration (commented out)
+    # properties:
+    #   security.protocol: SASL_SSL
+    #   sasl.mechanism: PLAIN
+    #   sasl.jaas.config: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"$ConnectionString\" password=\"Endpoint=sb://faulthub-eventhub.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=youraccesskey\";"
+    #   # The following properties are recommended for Azure Event Hubs
+    #   request.timeout.ms: 60000
+    #   session.timeout.ms: 30000
  
 cloudinary:
   cloud_name: ${CLOUDINARY_CLOUD_NAME}
   api_key: ${CLOUDINARY_API_KEY}
   api_secret: ${CLOUDINARY_API_SECRET}
 
-# Azure Application Insights Configuration
-azure:
-  application-insights:
-    instrumentation-key: ${APPINSIGHTS_INSTRUMENTATIONKEY}
-    enabled: true
-    web:
-      enabled: true
+socketio:
+  host: ${SOCKETIO_HOST:0.0.0.0}
+  port: ${SOCKETIO_PORT:9093}  # ✅ same as Spring Boot server
+
+logging:
+  level:
+    com.corundumstudio.socketio: DEBUG
+    com.leadersfault.service.SocketIOServerManager: DEBUG

@@ -23,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,6 +50,7 @@ public class LeaderController {
   private JwtUtil jwtUtil;
 
   @GetMapping
+  @Transactional(readOnly = true)
   public ResponseEntity<PaginatedResponse<LeaderResponse>> getAllLeaders(
     HttpServletRequest request,
     @RequestParam(defaultValue = "0") int page,
@@ -105,6 +107,7 @@ public class LeaderController {
   }
 
   @GetMapping("/{id}")
+  @Transactional(readOnly = true)
   public ResponseEntity<LeaderResponse> getLeaderById(
     HttpServletRequest request,
     @PathVariable Long id
@@ -126,6 +129,7 @@ public class LeaderController {
   }
 
   @GetMapping("/{id}/faults")
+  @Transactional(readOnly = true)
   public ResponseEntity<PaginatedResponse<FaultResponse>> getFaultsByLeader(
     HttpServletRequest request,
     @PathVariable Long id,

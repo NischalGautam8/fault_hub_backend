@@ -36,7 +36,7 @@ public class Fault {
   @JsonIgnore
   private List<Leader> leaders = new ArrayList<>();
 
-  @ManyToMany(fetch = FetchType.LAZY)
+  @ManyToMany(fetch = FetchType.EAGER)
   @JoinTable(
     name = "fault_likes",
     joinColumns = @JoinColumn(name = "fault_id"),
@@ -46,7 +46,7 @@ public class Fault {
   @JsonIgnore
   private List<User> likedBy = new ArrayList<>();
 
-  @ManyToMany(fetch = FetchType.LAZY)
+  @ManyToMany(fetch = FetchType.EAGER)
   @JoinTable(
     name = "fault_dislikes",
     joinColumns = @JoinColumn(name = "fault_id"),

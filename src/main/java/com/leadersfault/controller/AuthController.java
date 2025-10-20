@@ -135,13 +135,49 @@ public class AuthController {
   ) {
     try {
       if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-        return ResponseEntity.status(401).body("Invalid Authorization header format");
+        return ResponseEntity
+          .status(401)
+          .body("Invalid Authorization header format");
       }
       String token = authHeader.substring(7).trim(); // Remove "Bearer " prefix and trim whitespace
       jwtUtil.validateJwt(token);
       return ResponseEntity.ok("Token is valid");
     } catch (Exception e) {
       return ResponseEntity.status(401).body(e.getMessage());
+    }
+  }
+
+  @GetMapping("/me")
+  public ResponseEntity<?> getCurrentUser(
+    @RequestHeader("Authorization") String authHeader
+  ) {
+    try {
+      // Extract token from Authorization header
+      String token = authHeader.replace("Bearer ", "").trim();
+      jwtUtil.validateJwt(token);
+
+      // Extract username from token
+      String username = jwtUtil.extractUsername(token);
+
+      // Find user by username
+      var userOptional = userRepository.findByUsername(username);
+
+      if (userOptional.isPresent()) {
+        User user = userOptional.get();
+        // Return user details (excluding password)
+        return ResponseEntity.ok(
+          new UserSearchResponse(
+            user.getId(),
+            user.getUsername(),
+            user.getEmail()
+          )
+        );
+      } else {
+        return ResponseEntity.status(404).body("User not found");
+      }
+    } catch (Exception e) {
+      telemetryLogger.trackException(e);
+      return ResponseEntity.status(401).body("Unauthorized: " + e.getMessage());
     }
   }
 

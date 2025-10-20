@@ -41,7 +41,7 @@ public class Leader {
   @JsonIgnore
   private List<Fault> faults = new ArrayList<>();
 
-  @ElementCollection
+  @ElementCollection(fetch = FetchType.EAGER)
   @CollectionTable(
     name = "leader_likes",
     joinColumns = @JoinColumn(name = "leader_id")
@@ -49,7 +49,7 @@ public class Leader {
   @Column(name = "user_id")
   private Set<Long> likedByUsers = new HashSet<>();
 
-  @ElementCollection
+  @ElementCollection(fetch = FetchType.EAGER)
   @CollectionTable(
     name = "leader_dislikes",
     joinColumns = @JoinColumn(name = "leader_id")

@@ -5,31 +5,42 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadersfault.dto.FaultRequest;
 import com.leadersfault.dto.FaultResponse;
 import com.leadersfault.dto.LeaderResponse;
+import com.leadersfault.dto.NotificationEvent;
 import com.leadersfault.dto.PaginatedResponse;
 import com.leadersfault.entity.Fault;
 import com.leadersfault.entity.Leader;
+import com.leadersfault.entity.NotificationType;
 import com.leadersfault.entity.User;
 import com.leadersfault.repository.FaultRepository;
 import com.leadersfault.repository.LeaderRepository;
 import com.leadersfault.repository.UserRepository;
 import com.leadersfault.security.JwtUtil;
 import com.leadersfault.service.CloudinaryService;
+import com.leadersfault.service.KafkaProducerService;
 import com.leadersfault.service.UserValidationService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/faults")
 public class FaultController {
+
+  private static final Logger logger = LoggerFactory.getLogger(
+    FaultController.class
+  );
 
   @Autowired
   private FaultRepository faultRepository;
@@ -49,6 +60,9 @@ public class FaultController {
   @Autowired
   private JwtUtil jwtUtil;
 
+  @Autowired
+  private KafkaProducerService kafkaProducerService;
+
   @PostMapping
   public ResponseEntity<?> createFault(
     HttpServletRequest request,
@@ -60,7 +74,9 @@ public class FaultController {
     try {
       String token = request.getHeader("Authorization");
       if (token == null || !token.startsWith("Bearer ")) {
-        return ResponseEntity.status(401).body("Unauthorized: Missing or invalid token");
+        return ResponseEntity
+          .status(401)
+          .body("Unauthorized: Missing or invalid token");
       }
       token = token.substring(7).trim(); // Remove "Bearer " prefix and trim any whitespace
       jwtUtil.validateJwt(token);
@@ -175,6 +191,7 @@ public class FaultController {
   // }
 
   @GetMapping
+  @Transactional(readOnly = true)
   public ResponseEntity<PaginatedResponse<FaultResponse>> getFaults(
     HttpServletRequest request,
     @RequestParam(defaultValue = "0") int page,
@@ -197,6 +214,7 @@ public class FaultController {
   }
 
   @GetMapping("/{id}")
+  @Transactional(readOnly = true)
   public ResponseEntity<FaultResponse> getFault(
     HttpServletRequest request,
     @PathVariable Long id
@@ -291,12 +309,17 @@ public class FaultController {
       List<User> likedBy = fault.getLikedBy();
       List<User> dislikedBy = fault.getDislikedBy();
 
+      boolean shouldNotify = false;
+      NotificationType notificationType = null;
+
       if (isLike) {
         if (likedBy.contains(user)) {
           likedBy.remove(user); // Unlike if already liked
         } else {
           likedBy.add(user);
           dislikedBy.remove(user); // Remove from dislikes if present
+          shouldNotify = true;
+          notificationType = NotificationType.FAULT_LIKED;
         }
       } else {
         if (dislikedBy.contains(user)) {
@@ -304,10 +327,63 @@ public class FaultController {
         } else {
           dislikedBy.add(user);
           likedBy.remove(user); // Remove from likes if present
+          shouldNotify = true;
+          notificationType = NotificationType.FAULT_DISLIKED;
         }
       }
 
       faultRepository.save(fault);
+
+      // Send notification only if user is not the fault owner (no self-notifications)
+      if (shouldNotify && !fault.getUploadedBy().equals(username)) {
+        logger.info(
+          "🚀 Notification triggered - User '{}' {} fault '{}' (ID: {}) owned by '{}'",
+          username,
+          isLike ? "liked" : "disliked",
+          fault.getTitle(),
+          fault.getId(),
+          fault.getUploadedBy()
+        );
+
+        // Get fault owner user ID
+        Optional<User> faultOwnerOptional = userRepository.findByUsername(
+          fault.getUploadedBy()
+        );
+        if (faultOwnerOptional.isPresent()) {
+          User faultOwner = faultOwnerOptional.get();
+
+          NotificationEvent event = new NotificationEvent(
+            notificationType,
+            fault.getId(),
+            fault.getTitle(),
+            fault.getUploadedBy(),
+            faultOwner.getId(),
+            username,
+            LocalDateTime.now()
+          );
+
+          try {
+            kafkaProducerService.sendNotification(event);
+          } catch (Exception ex) {
+            logger.error(
+              "❌ Failed to send notification event (ignored): {}",
+              ex.toString()
+            );
+          }
+        } else {
+          logger.warn(
+            "⚠️ Fault owner '{}' not found in database, notification not sent",
+            fault.getUploadedBy()
+          );
+        }
+      } else if (shouldNotify) {
+        logger.debug(
+          "🔇 Skipping self-notification - User '{}' {} their own fault",
+          username,
+          isLike ? "liked" : "disliked"
+        );
+      }
+
       return ResponseEntity.ok(convertToDto(fault, user, 1)); // For single fault, totalPages is 1
     }
     return ResponseEntity.notFound().build();
